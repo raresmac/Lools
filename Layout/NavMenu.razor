@@ -1,70 +1,60 @@
-﻿<div class="flex flex-col h-full bg-slate-950 border-r border-slate-800/50">
+﻿<div class="flex flex-col h-full bg-slate-950 border-r border-slate-800/50 transition-all duration-300">
 
     @* 1. Header/Logo *@
-    <div class="h-20 flex items-center px-6 border-b border-slate-800/50 shrink-0">
-        <a class="flex items-center gap-3 no-underline group" href="">
-            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.4)] group-hover:rotate-12 transition-transform">
+    <div class="h-20 flex items-center px-4 border-b border-slate-800/50 shrink-0 overflow-hidden">
+        <div class="flex items-center gap-3 no-underline group">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.4)] shrink-0">
                 <span class="text-white font-black italic text-xl">L</span>
             </div>
-            <div class="flex flex-col">
+            @* We wrap text in 'sidebar-text' to hide it when narrow *@
+            <div class="flex flex-col sidebar-text">
                 <span class="text-xl font-black tracking-tighter text-white italic leading-none">LOOLS</span>
                 <span class="text-[9px] font-bold text-blue-500 uppercase tracking-[0.2em]">Dashboard</span>
             </div>
-        </a>
+        </div>
     </div>
 
-    @* Mobile Toggle (Hidden on Desktop) *@
-    <div class="md:hidden absolute top-5 right-5 z-50">
-        <button class="text-slate-400 p-2 hover:text-white" @onclick="ToggleNavMenu">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-            </svg>
-        </button>
-    </div>
-
-    @* 2. Navigation Links (This section grows) *@
-    <div class="@NavMenuCssClass flex-grow overflow-y-auto pt-4" @onclick="ToggleNavMenu">
-        <nav class="flex flex-col px-4 gap-2">
+    @* 2. Navigation Links *@
+    <div class="flex-grow overflow-y-auto pt-4">
+        <nav class="flex flex-col px-2 gap-2">
 
             <NavLink class="nav-link-custom" href="" Match="NavLinkMatch.All">
-                <div class="icon-box">
+                <div class="icon-box shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                     </svg>
                 </div>
-                <span class="font-bold uppercase tracking-widest text-[11px]">Home</span>
+                <span class="font-bold uppercase tracking-widest text-[11px] sidebar-text">Home</span>
             </NavLink>
 
             <NavLink class="nav-link-custom" href="summoner-timer">
-                <div class="icon-box">
+                <div class="icon-box shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </div>
-                <span class="font-bold uppercase tracking-widest text-[11px]">Summoner Tracker</span>
+                <span class="font-bold uppercase tracking-widest text-[11px] sidebar-text">Summoner Tracker</span>
             </NavLink>
 
-            <div class="mt-8 px-4 mb-2">
-                <span class="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Tools</span>
-            </div>
-
-            @* Disabled Placeholder *@
-            <div class="flex items-center gap-4 px-4 py-3 text-slate-800 cursor-not-allowed opacity-40">
-                <div class="w-8 h-8 flex items-center justify-center border border-slate-800 rounded-lg">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            @* Toggle Button at the bottom of the list *@
+            <button @onclick="ToggleSidebarGlobal" class="nav-link-custom mt-4 border-t border-slate-900 pt-4 w-full text-left">
+                <div class="icon-box shrink-0 bg-slate-900 border-slate-700">
+                    <svg class="w-4 h-4 transition-transform duration-500" id="sidebar-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M11 19l-7-7 7-7" />
+                    </svg>
                 </div>
-                <span class="font-bold uppercase tracking-widest text-[11px]">Jungle Timers</span>
-            </div>
+                <span class="font-bold uppercase tracking-widest text-[11px] sidebar-text">Collapse Menu</span>
+            </button>
+
         </nav>
     </div>
 
-    @* 3. Footer (Stays at the bottom) *@
-    <div class="p-6 border-t border-slate-900 shrink-0">
+    @* 3. Footer *@
+    <div class="p-4 border-t border-slate-900 shrink-0 overflow-hidden sidebar-text">
         <div class="bg-slate-900/50 rounded-xl p-3 border border-slate-800">
-            <p class="text-[9px] text-slate-500 font-bold uppercase mb-1">Status</p>
             <div class="flex items-center gap-2">
-                <div class="w-2 h-2 bg-teal-500 rounded-full animate-pulse shadow-[0_0_8px_#14b8a6]"></div>
-                <span class="text-[10px] text-slate-300 font-medium">Systems Active</span>
+                <div class="w-2 h-2 bg-teal-500 rounded-full animate-pulse"></div>
+                <span class="text-[10px] text-slate-300 font-medium whitespace-nowrap">Systems Active</span>
             </div>
         </div>
     </div>
@@ -75,11 +65,14 @@
         display: flex;
         align-items: center;
         gap: 1rem;
-        padding: 0.75rem 1rem;
+        padding: 0.75rem;
         border-radius: 0.75rem;
         color: #64748b;
         transition: all 0.2s ease;
         text-decoration: none;
+        border: none;
+        background: transparent;
+        cursor: pointer;
     }
 
         .nav-link-custom:hover {
@@ -88,8 +81,8 @@
         }
 
     .icon-box {
-        width: 2rem;
-        height: 2rem;
+        width: 2.5rem;
+        height: 2.5rem;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -107,14 +100,25 @@
             border-color: #3b82f6;
             color: #3b82f6;
         }
+
+    /* CSS logic for the narrow state */
+    body.sidebar-collapsed .sidebar-text {
+        display: none !important;
+    }
+
+    body.sidebar-collapsed #sidebar-arrow {
+        transform: rotate(180deg);
+    }
 </style>
 
 @code {
+    [Inject] private IJSRuntime JS { get; set; } = default!;
     private bool collapseNavMenu = true;
     private string? NavMenuCssClass => collapseNavMenu ? "hidden md:flex md:flex-col" : "flex flex-col";
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 
-    private void ToggleNavMenu()
+    private async Task ToggleSidebarGlobal()
     {
-        collapseNavMenu = !collapseNavMenu;
+        await JS.InvokeVoidAsync("eval", "document.body.classList.toggle('sidebar-collapsed')");
     }
 }

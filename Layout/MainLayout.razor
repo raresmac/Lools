@@ -1,13 +1,31 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="flex flex-col md:flex-row min-h-screen bg-slate-950">
-    @* Sidebar Container *@
-    <aside class="w-full md:w-72 md:h-screen md:sticky md:top-0 z-40">
+    @* Sidebar Container - Dynamic Width *@
+    <aside class="sidebar-aside transition-all duration-300 md:h-screen md:sticky md:top-0 z-40 bg-slate-950">
         <NavMenu />
     </aside>
 
     @* Main Content *@
-    <main class="flex-1">
+    <main class="flex-1 overflow-hidden">
         @Body
     </main>
 </div>
+
+<style>
+    /* Default expanded width */
+    .sidebar-aside {
+        width: 100%;
+    }
+
+    @@media (min-width: 768px) {
+        .sidebar-aside {
+            width: 18rem;
+        }
+        /* 72 units */
+        /* When collapsed, shrink to icon width */
+        body.sidebar-collapsed .sidebar-aside {
+            width: 5rem; /* 20 units */
+        }
+    }
+</style>
