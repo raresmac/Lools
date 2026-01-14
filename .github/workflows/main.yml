@@ -1,0 +1,45 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ] # Change this to 'master' if your branch is named master
+
+jobs:
+  deploy-to-github-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x # Ensure this matches your project version
+
+      - name: Setup Node.js (for Tailwind)
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Tailwind Dependencies
+        run: npm install
+
+      - name: Publish .NET Core Project
+        run: dotnet publish -c Release -o release --nologo
+
+      # This step fixes the base-href for GitHub Pages sub-folders
+      # Replace 'REPRO_NAME' with your GitHub repository name (e.g., 'lools-dashboard')
+      - name: Fix Base Href
+        run: sed -i 's/<base href="\/" \/>/<base href="/Lools/" \/>/g' release/wwwroot/index.html
+
+      # Copy index.html to 404.html for routing
+      - name: copy index.html to 404.html
+        run: cp release/wwwroot/index.html release/wwwroot/404.html
+
+      - name: Add .nojekyll file
+        run: touch release/wwwroot/.nojekyll
+
+      - name: Commit build artifacts to gh-pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: release/wwwroot
