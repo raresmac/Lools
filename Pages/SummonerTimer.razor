@@ -2,7 +2,7 @@
 @using System.Threading
 @implements IDisposable
 
-<div class="min-h-screen bg-slate-950 p-6 text-white font-sans">
+<div class="min-h-screen bg-slate-950 p-6 text-white font-sans overflow-x-auto">
     @if (Lanes == null || Spells == null || ChampionNames == null)
     {
         <div class="flex items-center justify-center h-screen">
@@ -19,10 +19,12 @@
                 <div class="h-1 w-32 bg-blue-500 mx-auto mt-2 rounded-full shadow-[0_0_15px_#3b82f6]"></div>
             </div>
 
+            @* Grid with min-width logic *@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
                 @foreach (var lane in Lanes)
                 {
-                    <div class="bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col transform transition-all hover:border-blue-500/30">
+                    @* Added min-w-[250px] here *@
+                    <div class="bg-slate-900 min-w-[250px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col transform transition-all hover:border-blue-500/30">
 
                         @* --- CHAMPION PHOTO HEADER --- *@
                         <div class="relative h-64 bg-slate-800 overflow-hidden border-b border-slate-700">
@@ -65,50 +67,74 @@
                                 </select>
                             </div>
 
-                            @* Spell Buttons *@
+                            @* --- SPELL BUTTONS --- *@
                             <div class="grid grid-cols-1 gap-4">
-                                @* Flash Button Safety *@
-                                @if (Spells.ContainsKey("flash"))
-                                {
-                                    var flash = Spells["flash"];
-                                    <button @onclick="() => StartTimer(lane, true)"
-                                            disabled="@(lane.FlashRemaining.HasValue)"
-                                            class="w-full h-20 relative overflow-hidden rounded-xl border-2 transition-all @(lane.FlashRemaining.HasValue ? "border-slate-800 grayscale" : "border-yellow-500/30 hover:border-yellow-400 active:scale-95 shadow-lg shadow-yellow-500/5")">
-                                        <img src="@flash.IconUrl" class="absolute inset-0 w-full h-full object-cover opacity-20" />
-                                        <div class="relative z-10 flex flex-col items-center justify-center h-full bg-slate-900/40">
-                                            @if (lane.FlashRemaining.HasValue)
-                                            {
-                                                <span class="text-3xl font-black text-white italic">@FormatTime(lane.FlashRemaining)</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-sm font-black text-yellow-500 uppercase tracking-widest">Flash</span>
-                                            }
-                                        </div>
-                                        @if (lane.FlashRemaining.HasValue)
-                                        {
-                                            <div class="absolute bottom-0 left-0 h-1.5 bg-yellow-500 shadow-[0_0_15px_#eab308]"
-                                                 style="width: @(GetPercent(lane.FlashRemaining, CalculateCd(flash.BaseCd, lane.Haste)))%"></div>
-                                        }
-                                    </button>
-                                }
 
-                                @* Spell 2 Section *@
+                                @* SPELL 1 (Flash Slot) *@
+                                <div class="relative group">
+                                    @* SWAP BUTTON (Rotated Arrow) *@
+                                    <button @onclick="() => lane.IsFlashSwapped = !lane.IsFlashSwapped"
+                                            class="absolute -top-2 -right-2 z-20 bg-slate-800 p-1.5 rounded-full border border-slate-700 text-slate-400 hover:text-blue-400 hover:border-blue-500 transition-all shadow-xl">
+                                        <svg class="w-3 h-3 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
+                                    </button>
+
+                                    @if (lane.IsFlashSwapped)
+                                    {
+                                        <select @bind="lane.SelectedSpell1Key" class="w-full bg-slate-800 text-white text-[11px] px-3 py-1 mb-2 rounded border border-slate-700 uppercase font-bold">
+                                            @foreach (var spell in Spells)
+                                            {
+                                                <option value="@spell.Key">@spell.Value.Name</option>
+                                            }
+                                        </select>
+                                    }
+
+                                    @if (Spells.TryGetValue(lane.SelectedSpell1Key, out var s1))
+                                    {
+                                        <button @onclick="() => StartTimer(lane, true)"
+                                                disabled="@(lane.Spell1Remaining.HasValue)"
+                                                class="w-full h-20 relative overflow-hidden rounded-xl border-2 transition-all @(lane.Spell1Remaining.HasValue ? "border-slate-800 grayscale" : "border-yellow-500/30 hover:border-yellow-400 active:scale-95 shadow-lg")">
+                                            <img src="@s1.IconUrl" class="absolute inset-0 w-full h-full object-cover opacity-20" />
+                                            <div class="relative z-10 flex flex-col items-center justify-center h-full bg-slate-900/40">
+                                                @if (lane.Spell1Remaining.HasValue)
+                                                {
+                                                    <span class="text-3xl font-black text-white italic">@FormatTime(lane.Spell1Remaining)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-sm font-black text-yellow-500 uppercase tracking-widest">@s1.Name</span>
+                                                    @* Preview Timer *@
+                                                    <span class="text-[10px] font-bold text-slate-500">(@FormatTime(CalculateCd(s1.BaseCd, lane.Haste)))</span>
+                                                }
+                                            </div>
+                                            @if (lane.Spell1Remaining.HasValue)
+                                            {
+                                                <div class="absolute bottom-0 left-0 h-1.5 bg-yellow-500 shadow-[0_0_15px_#eab308]"
+                                                     style="width: @(GetPercent(lane.Spell1Remaining, CalculateCd(s1.BaseCd, lane.Haste)))%"></div>
+                                            }
+                                        </button>
+                                    }
+                                </div>
+
+                                @* SPELL 2 (Selectable Slot) *@
                                 <div class="space-y-3">
-                                    <select @bind="lane.SelectedSpell2Key" class="w-full bg-slate-800 text-white text-[11px] px-3 py-2 rounded-lg border border-slate-700 uppercase font-bold tracking-tight">
-                                        <option value="">Choose Second Spell</option>
-                                        @foreach (var spell in Spells.Where(s => s.Key != "flash"))
+                                    <select @bind="lane.SelectedSpell2Key"
+                                            disabled="@(lane.Name == "Jungle")"
+                                            class="w-full bg-slate-800 text-white text-[11px] px-3 py-2 rounded-lg border border-slate-700 uppercase font-bold tracking-tight disabled:opacity-50">
+                                        @if (lane.Name != "Jungle")
+                                        {
+                                            <option value="">Choose Second Spell</option>
+                                        }
+                                        @foreach (var spell in Spells)
                                         {
                                             <option value="@spell.Key">@spell.Value.Name</option>
                                         }
                                     </select>
 
-                                    @if (!string.IsNullOrEmpty(lane.SelectedSpell2Key) && Spells.ContainsKey(lane.SelectedSpell2Key))
+                                    @if (!string.IsNullOrEmpty(lane.SelectedSpell2Key) && Spells.TryGetValue(lane.SelectedSpell2Key, out var s2))
                                     {
-                                        var s2 = Spells[lane.SelectedSpell2Key];
                                         <button @onclick="() => StartTimer(lane, false)"
                                                 disabled="@(lane.Spell2Remaining.HasValue)"
-                                                class="w-full h-20 relative overflow-hidden rounded-xl border-2 transition-all @(lane.Spell2Remaining.HasValue ? "border-slate-800 grayscale" : "border-blue-500/30 hover:border-blue-400 active:scale-95 shadow-lg shadow-blue-500/5")">
+                                                class="w-full h-20 relative overflow-hidden rounded-xl border-2 transition-all @(lane.Spell2Remaining.HasValue ? "border-slate-800 grayscale" : "border-blue-500/30 hover:border-blue-400 active:scale-95 shadow-lg")">
                                             <img src="@s2.IconUrl" class="absolute inset-0 w-full h-full object-cover opacity-20" />
                                             <div class="relative z-10 flex flex-col items-center justify-center h-full bg-slate-900/40">
                                                 @if (lane.Spell2Remaining.HasValue)
@@ -118,6 +144,8 @@
                                                 else
                                                 {
                                                     <span class="text-sm font-black text-blue-400 uppercase tracking-widest">@s2.Name</span>
+                                                    @* Preview Timer *@
+                                                    <span class="text-[10px] font-bold text-slate-500">(@FormatTime(CalculateCd(s2.BaseCd, lane.Haste)))</span>
                                                 }
                                             </div>
                                             @if (lane.Spell2Remaining.HasValue)
@@ -136,12 +164,9 @@
         </div>
 
         <datalist id="champion-list">
-            @if (ChampionNames != null)
+            @foreach (var name in ChampionNames)
             {
-                @foreach (var name in ChampionNames)
-                {
-                    <option value="@name" />
-                }
+                <option value="@name" />
             }
         </datalist>
     }
@@ -149,42 +174,36 @@
 
 @code {
     public class Spell { public string Name { get; set; } = ""; public int BaseCd { get; set; } public string IconUrl { get; set; } = ""; }
-    public class LaneState { public string Name { get; set; } = ""; public string Champion { get; set; } = ""; public string SelectedSpell2Key { get; set; } = ""; public int Haste { get; set; } = 0; public int? FlashRemaining { get; set; } = null; public int? Spell2Remaining { get; set; } = null; }
+
+    public class LaneState
+    {
+        public string Name { get; set; } = "";
+        public string Champion { get; set; } = "";
+        public string SelectedSpell1Key { get; set; } = "flash"; // Default to flash
+        public string SelectedSpell2Key { get; set; } = "";
+        public bool IsFlashSwapped { get; set; } = false; // Toggle for the arrow button
+        public int Haste { get; set; } = 0;
+        public int? Spell1Remaining { get; set; } = null;
+        public int? Spell2Remaining { get; set; } = null;
+    }
 
     private PeriodicTimer _timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
     private CancellationTokenSource _cts = new();
 
-    // INITIALIZE ALL LISTS IMMEDIATELY TO PREVENT NULL ERRORS
     private List<LaneState> Lanes = new() {
-        new LaneState { Name = "Top" }, new LaneState { Name = "Jungle" },
-        new LaneState { Name = "Mid" }, new LaneState { Name = "Bot" },
+        new LaneState { Name = "Top" },
+        new LaneState { Name = "Jungle", SelectedSpell2Key = "smite" }, // Mandatory Smite
+        new LaneState { Name = "Mid" },
+        new LaneState { Name = "Bot" },
         new LaneState { Name = "Support" }
     };
 
     private Dictionary<string, Spell> Spells = new();
-    private Dictionary<int, string> HasteOptions = new() { { 0, "No Haste (0)" }, { 10, "Cosmic Insight (10)" }, { 12, "Ionian Boots (12)" }, { 22, "Both (22)" } };
+    private Dictionary<int, string> HasteOptions = new() { { 0, "No Haste" }, { 10, "Cosmic Insight" }, { 12, "Ionian Boots" }, { 22, "Insight + Boots" } };
 
-    private List<string> ChampionNames = new() {
-        "Aatrox", "Ahri", "Akali", "Akshan", "Alistar", "Ambessa", "Amumu", "Anivia", "Annie", "Aphelios", "Ashe", "Aurelion Sol", "Aurora", "Azir",
-        "Bard", "Bel'Veth", "Blitzcrank", "Brand", "Braum", "Briar", "Caitlyn", "Camille", "Cassiopeia", "Cho'Gath", "Corki", "Darius", "Diana",
-        "Dr. Mundo", "Draven", "Ekko", "Elise", "Evelynn", "Ezreal", "Fiddlesticks", "Fiora", "Fizz", "Galio", "Gangplank", "Garen", "Gnar", "Gragas",
-        "Graves", "Gwen", "Hecarim", "Heimerdinger", "Hwei", "Illaoi", "Irelia", "Ivern", "Janna", "Jarvan IV", "Jax", "Jayce", "Jhin", "Jinx",
-        "K'Sante", "Kai'Sa", "Kalista", "Karma", "Karthus", "Kassadin", "Katarina", "Kayle", "Kayn", "Kennen", "Kha'Zix", "Kindred", "Kled",
-        "Kog'Maw", "LeBlanc", "Lee Sin", "Leona", "Lillia", "Lissandra", "Lucian", "Lulu", "Lux", "Malphite", "Malzahar", "Maokai", "Master Yi",
-        "Mel", "Milio", "Miss Fortune", "Mordekaiser", "Morgana", "Naafiri", "Nami", "Nasus", "Nautilus", "Neeko", "Nidalee", "Nilah", "Nocturne",
-        "Nunu & Willump", "Olaf", "Orianna", "Ornn", "Pantheon", "Poppy", "Pyke", "Qiyana", "Quinn", "Rakan", "Rammus", "Rek'Sai", "Rell", "Renata Glasc",
-        "Renekton", "Rengar", "Riven", "Rumble", "Ryze", "Samira", "Sejuani", "Senna", "Seraphine", "Sett", "Shaco", "Shen", "Shyvana", "Singed",
-        "Sion", "Sivir", "Skarner", "Smolder", "Sona", "Soraka", "Swain", "Sylas", "Syndra", "Tahm Kench", "Taliyah", "Talon", "Taric", "Teemo",
-        "Thresh", "Tristana", "Trundle", "Tryndamere", "Twisted Fate", "Twitch", "Udyr", "Urgot", "Varus", "Vayne", "Veigar", "Vel'Koz", "Vex",
-        "Vi", "Viego", "Viktor", "Vladimir", "Volibear", "Warwick", "Wukong", "Xayah", "Xerath", "Xin Zhao", "Yasuo", "Yone", "Yorick", "Yuumi",
-        "Zac", "Zed", "Zeri", "Ziggs", "Zilean", "Zoe", "Zyra"
-    };
+    private List<string> ChampionNames = new() { "Aatrox", "Ahri", "Akali", "Akshan", "Alistar", "Ambessa", "Amumu", "Anivia", "Annie", "Aphelios", "Ashe", "Aurelion Sol", "Aurora", "Azir", "Bard", "Bel'Veth", "Blitzcrank", "Brand", "Braum", "Briar", "Caitlyn", "Camille", "Cassiopeia", "Cho'Gath", "Corki", "Darius", "Diana", "Dr. Mundo", "Draven", "Ekko", "Elise", "Evelynn", "Ezreal", "Fiddlesticks", "Fiora", "Fizz", "Galio", "Gangplank", "Garen", "Gnar", "Gragas", "Graves", "Gwen", "Hecarim", "Heimerdinger", "Hwei", "Illaoi", "Irelia", "Ivern", "Janna", "Jarvan IV", "Jax", "Jayce", "Jhin", "Jinx", "K'Sante", "Kai'Sa", "Kalista", "Karma", "Karthus", "Kassadin", "Katarina", "Kayle", "Kayn", "Kennen", "Kha'Zix", "Kindred", "Kled", "Kog'Maw", "LeBlanc", "Lee Sin", "Leona", "Lillia", "Lissandra", "Lucian", "Lulu", "Lux", "Malphite", "Malzahar", "Maokai", "Master Yi", "Mel", "Milio", "Miss Fortune", "Mordekaiser", "Morgana", "Naafiri", "Nami", "Nasus", "Nautilus", "Neeko", "Nidalee", "Nilah", "Nocturne", "Nunu & Willump", "Olaf", "Orianna", "Ornn", "Pantheon", "Poppy", "Pyke", "Qiyana", "Quinn", "Rakan", "Rammus", "Rek'Sai", "Rell", "Renata Glasc", "Renekton", "Rengar", "Riven", "Rumble", "Ryze", "Samira", "Sejuani", "Senna", "Seraphine", "Sett", "Shaco", "Shen", "Shyvana", "Singed", "Sion", "Sivir", "Skarner", "Smolder", "Sona", "Soraka", "Swain", "Sylas", "Syndra", "Tahm Kench", "Taliyah", "Talon", "Taric", "Teemo", "Thresh", "Tristana", "Trundle", "Tryndamere", "Twisted Fate", "Twitch", "Udyr", "Urgot", "Varus", "Vayne", "Veigar", "Vel'Koz", "Vex", "Vi", "Viego", "Viktor", "Vladimir", "Volibear", "Warwick", "Wukong", "Xayah", "Xerath", "Xin Zhao", "Yasuo", "Yone", "Yorick", "Yuumi", "Zac", "Zed", "Zeri", "Ziggs", "Zilean", "Zoe", "Zyra" };
 
-    protected override void OnInitialized()
-    {
-        InitializeSpells();
-        _ = RunTimer();
-    }
+    protected override void OnInitialized() { InitializeSpells(); _ = RunTimer(); }
 
     private void InitializeSpells()
     {
@@ -206,11 +225,7 @@
     {
         if (string.IsNullOrWhiteSpace(name)) return "";
         string input = name.ToLower().Trim();
-        var special = new Dictionary<string, string> {
-            {"wukong", "MonkeyKing"}, {"monkey king", "MonkeyKing"}, {"nunu", "Nunu"},
-            {"renata", "Renata"}, {"renata glasc", "Renata"}, {"jarvan", "JarvanIV"},
-            {"jarvan iv", "JarvanIV"}, {"leblanc", "Leblanc"}, {"k'sante", "KSante"}, {"dr. mundo", "DrMundo"}
-        };
+        var special = new Dictionary<string, string> { { "wukong", "MonkeyKing" }, { "monkey king", "MonkeyKing" }, { "nunu", "Nunu" }, { "renata", "Renata" }, { "renata glasc", "Renata" }, { "jarvan", "JarvanIV" }, { "jarvan iv", "JarvanIV" }, { "leblanc", "Leblanc" }, { "k'sante", "KSante" }, { "dr. mundo", "DrMundo" } };
         if (special.TryGetValue(input, out var mapped)) return $"https://ddragon.leagueoflegends.com/cdn/img/champion/loading/{mapped}_0.jpg";
         var parts = name.Split(new[] { ' ', '-', '.', '\'' }, StringSplitOptions.RemoveEmptyEntries);
         var pascal = string.Join("", parts.Select(p => p.Length <= 1 ? p.ToUpper() : char.ToUpper(p[0]) + p.Substring(1).ToLower()));
@@ -227,8 +242,8 @@
                 bool changed = false;
                 foreach (var l in Lanes)
                 {
-                    if (l.FlashRemaining > 0) { l.FlashRemaining--; changed = true; }
-                    else if (l.FlashRemaining == 0) { l.FlashRemaining = null; changed = true; }
+                    if (l.Spell1Remaining > 0) { l.Spell1Remaining--; changed = true; }
+                    else if (l.Spell1Remaining == 0) { l.Spell1Remaining = null; changed = true; }
                     if (l.Spell2Remaining > 0) { l.Spell2Remaining--; changed = true; }
                     else if (l.Spell2Remaining == 0) { l.Spell2Remaining = null; changed = true; }
                 }
@@ -238,11 +253,12 @@
         catch { }
     }
 
-    private void StartTimer(LaneState lane, bool isFlash)
+    private void StartTimer(LaneState lane, bool isSpell1)
     {
-        if (isFlash && Spells.ContainsKey("flash")) lane.FlashRemaining = CalculateCd(Spells["flash"].BaseCd, lane.Haste);
-        else if (!string.IsNullOrEmpty(lane.SelectedSpell2Key) && Spells.ContainsKey(lane.SelectedSpell2Key))
-            lane.Spell2Remaining = CalculateCd(Spells[lane.SelectedSpell2Key].BaseCd, lane.Haste);
+        if (isSpell1 && Spells.TryGetValue(lane.SelectedSpell1Key, out var s1))
+            lane.Spell1Remaining = CalculateCd(s1.BaseCd, lane.Haste);
+        else if (!isSpell1 && Spells.TryGetValue(lane.SelectedSpell2Key, out var s2))
+            lane.Spell2Remaining = CalculateCd(s2.BaseCd, lane.Haste);
     }
 
     private int CalculateCd(int baseCd, int haste) => (int)Math.Round(baseCd * (1 - haste / 100.0));
