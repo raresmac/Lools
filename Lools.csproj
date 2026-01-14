@@ -11,9 +11,4 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.2" PrivateAssets="all" />
   </ItemGroup>
-	
-	<Target Name="Tailwind" BeforeTargets="Build">
-		<Exec Command="npm install" Condition="!Exists('node_modules')" />
-		<Exec Command="npx tailwindcss -i wwwroot/css/app.css -o wwwroot/css/site.css --minify" />
-	</Target>
 </Project>
