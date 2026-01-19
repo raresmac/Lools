@@ -1,0 +1,173 @@
+﻿@page "/jungle-heatmap"
+@using System.Threading
+@implements IDisposable
+
+<div class="min-h-screen bg-slate-950 p-4 text-white font-sans selection:bg-red-500/30 overflow-hidden relative">
+
+    @* --- HEADER --- *@
+    <div class="max-w-[500px] mx-auto mb-4 flex justify-between items-end">
+        <div>
+            <h1 class="text-2xl font-black tracking-tighter italic text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500 uppercase">
+                Jungle Radar
+            </h1>
+            <p class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Predictive Threat Zone</p>
+        </div>
+        <div class="flex gap-2">
+            @if (IsStarted)
+            {
+                <button @onclick="ResetTracker" class="text-[9px] font-black uppercase text-red-500 hover:text-white border border-red-900/50 hover:bg-red-600 px-3 py-1 rounded-lg transition-all">
+                    Reset Radar
+                </button>
+            }
+        </div>
+    </div>
+
+    @* --- TACTICAL HUD --- *@
+    <div class="max-w-[500px] mx-auto bg-slate-900/80 border border-slate-800 p-3 rounded-2xl flex items-center justify-between shadow-2xl mb-4 relative overflow-hidden">
+
+        @if (!IsStarted)
+        {
+            @* --- START OVERLAY --- *@
+            <div class="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center">
+                <button @onclick="() => IsStarted = true"
+                        class="px-8 py-2 bg-red-600 hover:bg-red-500 text-white rounded-full font-black uppercase tracking-widest shadow-[0_0_20px_rgba(239,68,68,0.4)] transition-all transform hover:scale-105 active:scale-95 text-xs border border-red-400/30">
+                    ▶ Start Radar
+                </button>
+            </div>
+        }
+
+        @* Precision Clock *@
+        <div class="flex flex-col items-center">
+            <span class="text-[8px] font-black text-slate-500 uppercase mb-1">Match Time</span>
+            <div class="flex items-center gap-2 bg-slate-950 px-3 py-1 rounded-lg border border-slate-800">
+                <button @onclick="() => MatchSeconds = Math.Max(0, MatchSeconds - 1)" class="text-xl text-red-500/50 hover:text-red-400 font-bold px-1">-</button>
+                <span class="text-xl font-mono font-black text-red-50 min-w-[70px] text-center">@FormatTime(MatchSeconds)</span>
+                <button @onclick="() => MatchSeconds++" class="text-xl text-red-500/50 hover:text-red-400 font-bold px-1">+</button>
+            </div>
+        </div>
+
+        @* Speed Select *@
+        <div class="flex flex-col">
+            <span class="text-[8px] font-black text-slate-500 uppercase mb-1 text-center">Speed Profile</span>
+            <select @bind="BaseMoveSpeed" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] outline-none text-orange-400 font-bold">
+                <option value="335">No Boots (335)</option>
+                <option value="380">T1 Boots (380)</option>
+                <option value="415">T2 Boots (415)</option>
+                <option value="460">Mobi Boots (460)</option>
+            </select>
+        </div>
+    </div>
+
+    @* --- THE MAP --- *@
+    <div class="relative w-[500px] h-[500px] mx-auto bg-slate-900 rounded-3xl border-2 border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden group @(IsStarted ? "cursor-crosshair" : "cursor-not-allowed")">
+
+        <img src="https://wiki.leagueoflegends.com/en-us/images/thumb/Summoner%27s_Rift_Minimap.png/300px-Summoner%27s_Rift_Minimap.png?332ac"
+             class="w-full h-full object-cover @(IsStarted ? "opacity-60 grayscale group-hover:grayscale-0" : "opacity-20 grayscale") transition-all duration-1000" alt="Map" />
+
+        @* Only allow clicking if started *@
+        @if (IsStarted)
+        {
+            <div class="absolute inset-0 z-30" @onclick="HandleMapClick"></div>
+        }
+
+        @* Heat/Danger Circle Overlay *@
+        @if (LastSeenX.HasValue && LastSeenY.HasValue)
+        {
+            <div class="absolute z-40 pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
+                 style="left: @(LastSeenX)%; top: @(LastSeenY)%;">
+                <div class="w-4 h-4 bg-red-600 rounded-full border-2 border-white animate-ping"></div>
+                <div class="absolute top-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-red-600 text-[8px] font-black px-2 py-0.5 rounded shadow-lg">
+                    LAST SEEN @@ @FormatTime(LastSeenMatchTime)
+                </div>
+            </div>
+
+            <div class="absolute z-20 pointer-events-none transform -translate-x-1/2 -translate-y-1/2 bg-red-500/10 border border-red-500/40 rounded-full transition-all duration-1000 ease-linear shadow-[inset_0_0_20px_rgba(239,68,68,0.2)]"
+                 style="left: @(LastSeenX)%; top: @(LastSeenY)%; width: @(CurrentRadius * 2)px; height: @(CurrentRadius * 2)px;">
+            </div>
+        }
+
+        @if (!LastSeenX.HasValue && IsStarted)
+        {
+            <div class="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                <span class="text-slate-700 font-black uppercase tracking-[0.3em] text-sm animate-pulse">Click Map to Track Jungler</span>
+            </div>
+        }
+    </div>
+
+    @* Stats Footer *@
+    <div class="max-w-[500px] mx-auto mt-4 grid grid-cols-2 gap-4">
+        <div class="bg-slate-900/50 border border-slate-800 p-2 rounded-xl text-center">
+            <span class="text-[8px] font-black text-slate-500 uppercase block tracking-tighter">Time Since Sight</span>
+            <span class="text-white font-mono font-black text-xl">@(LastSeenX.HasValue ? (MatchSeconds - LastSeenMatchTime) : 0)s</span>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 p-2 rounded-xl text-center">
+            <span class="text-[8px] font-black text-slate-500 uppercase block tracking-tighter">Potential Reach</span>
+            <span class="text-white font-mono font-black text-xl">@(Math.Round(CurrentRadius * 30))u</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int MatchSeconds = 0;
+    private bool IsStarted = false;
+    private double? LastSeenX;
+    private double? LastSeenY;
+    private int LastSeenMatchTime;
+    private double BaseMoveSpeed = 380;
+    private double CurrentRadius = 0;
+
+    private PeriodicTimer _timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+    private CancellationTokenSource _cts = new();
+
+    protected override void OnInitialized()
+    {
+        _ = RunClock();
+    }
+
+    private void HandleMapClick(MouseEventArgs e)
+    {
+        LastSeenX = (e.OffsetX / 500.0) * 100;
+        LastSeenY = (e.OffsetY / 500.0) * 100;
+        LastSeenMatchTime = MatchSeconds;
+        CurrentRadius = 0;
+    }
+
+    private async Task RunClock()
+    {
+        try
+        {
+            while (await _timer.WaitForNextTickAsync(_cts.Token))
+            {
+                // Logic: Loop runs but only increments if user clicked Start
+                if (IsStarted)
+                {
+                    MatchSeconds++;
+                    if (LastSeenX.HasValue)
+                    {
+                        int secondsElapsed = MatchSeconds - LastSeenMatchTime;
+                        CurrentRadius = (secondsElapsed * BaseMoveSpeed) / 30.0;
+                    }
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private void ResetTracker()
+    {
+        IsStarted = false;
+        MatchSeconds = 0;
+        LastSeenX = null;
+        LastSeenY = null;
+        CurrentRadius = 0;
+    }
+
+    private string FormatTime(int s) => $"{(s / 60)}:{(s % 60):D2}";
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _timer.Dispose();
+    }
+}
