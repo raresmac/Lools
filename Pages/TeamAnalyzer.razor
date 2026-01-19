@@ -1,0 +1,217 @@
+﻿@page "/team-analyzer"
+@using System.Linq
+@inject NavigationManager Nav
+
+<div class="min-h-screen bg-slate-950 p-2 md:p-8 text-white font-sans selection:bg-indigo-500/30 overflow-x-hidden">
+
+    @* --- HEADER --- *@
+    <div class="max-w-[1200px] mx-auto flex justify-between items-center mb-6 px-4">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-black tracking-tighter italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-red-400 uppercase leading-none">
+                Team Analyzer
+            </h1>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">Win-Condition Logic v2.5</p>
+        </div>
+        <button @onclick="Reset" class="px-6 py-2 border border-slate-800 rounded-xl text-[10px] font-black uppercase hover:bg-red-600 transition-all">Clear Draft</button>
+    </div>
+
+    <div class="max-w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 items-center px-2">
+
+        @* --- BLUE TEAM --- *@
+        <div class="lg:col-span-3 space-y-3 px-2">
+            <div class="text-center mb-2">
+                <span class="text-2xl font-black text-blue-500 uppercase italic tracking-widest">Blue Side</span>
+            </div>
+            @for (int i = 0; i < 5; i++)
+            {
+                int index = i;
+                <div class="relative group">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-l-lg group-focus-within:w-2 transition-all"></div>
+                    <input type="text" list="champion-list" placeholder="Blue Slot @(i + 1)"
+                           @bind="BlueTeam[index]" @bind:event="oninput"
+                           class="w-full bg-slate-900 border border-slate-800 text-white pl-5 pr-4 py-3 rounded-xl text-sm outline-none focus:border-blue-500 transition-all shadow-lg truncate" />
+                </div>
+            }
+        </div>
+
+        @* --- RADAR HUD --- *@
+        <div class="lg:col-span-6 flex flex-col items-center justify-center relative min-h-[500px]">
+            <svg viewBox="0 0 450 450" class="w-full max-w-[550px] drop-shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+                @* Polygons first so labels are on top *@
+                <path d="@GetTeamPath(RedTeam)" fill="#ef4444" fill-opacity="0.2" stroke="#ef4444" stroke-width="3" class="transition-all duration-700 ease-out" />
+                <path d="@GetTeamPath(BlueTeam)" fill="#3b82f6" fill-opacity="0.3" stroke="#3b82f6" stroke-width="3" class="transition-all duration-700 ease-out" />
+
+                @* Background Grid *@
+                @for (int i = 1; i <= 5; i++)
+                {
+                    <path d="@GetHexPath(i * 30)" fill="none" stroke="white" stroke-width="0.5" stroke-opacity="0.1" />
+                }
+
+                @* Axis *@
+                @for (int i = 0; i < 6; i++)
+                {
+                    <line x1="225" y1="225" x2="@GetX(225, 150, i)" y2="@GetY(225, 150, i)" stroke="white" stroke-width="0.5" stroke-opacity="0.15" />
+                    <g transform="translate(@GetX(225, 185, i), @GetY(225, 185, i))">
+                        <text fill="white" font-size="11" font-weight="900" text-anchor="middle" class="uppercase tracking-widest opacity-60">@Categories[i]</text>
+                    </g>
+                }
+            </svg>
+
+            @* Intelligence Feed *@
+            <div class="mt-6 w-full max-w-[550px] bg-slate-900/90 border border-slate-800 p-6 rounded-[2.5rem] shadow-2xl backdrop-blur-xl">
+                <div class="space-y-4">
+                    @{
+                        var bS = GetAggregatedScores(BlueTeam); var rS = GetAggregatedScores(RedTeam);
+                    }
+                    @if (bS.Values.Sum() < 1)
+                    {
+                        <div class="text-center py-4">
+                            <span class="text-slate-600 font-bold uppercase tracking-[0.3em] text-[10px] animate-pulse">Awaiting Draft Data...</span>
+                        </div>
+                    }
+                    else
+                    {
+                        @GenerateIntelligence(bS, rS)
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* --- RED TEAM --- *@
+        <div class="lg:col-span-3 space-y-3 px-2">
+            <div class="text-center mb-2">
+                <span class="text-2xl font-black text-red-500 uppercase italic tracking-widest">Red Side</span>
+            </div>
+            @for (int i = 0; i < 5; i++)
+            {
+                int index = i;
+                <div class="relative group">
+                    <div class="absolute right-0 top-0 bottom-0 w-1 bg-red-600 rounded-r-lg group-focus-within:w-2 transition-all"></div>
+                    <input type="text" list="champion-list" placeholder="Red Slot @(i + 1)"
+                           @bind="RedTeam[index]" @bind:event="oninput"
+                           class="w-full bg-slate-900 border border-slate-800 text-white pr-5 pl-4 py-3 rounded-xl text-sm outline-none text-right focus:border-red-500 transition-all shadow-lg truncate" />
+                </div>
+            }
+        </div>
+    </div>
+
+    <datalist id="champion-list">@foreach (var n in ChampionNames) {
+    <option value="@n" />
+        }
+</datalist>
+</div>
+
+@code {
+    private string[] BlueTeam = new string[5];
+    private string[] RedTeam = new string[5];
+    private string[] Categories = { "Early Game", "Poke", "Scaling", "Burst", "Tanking", "Mobility" };
+    private double[] AxisAngles = { -Math.PI / 2, -Math.PI / 6, Math.PI / 6, Math.PI / 2, 5 * Math.PI / 6, 7 * Math.PI / 6 };
+
+    private void Reset() { BlueTeam = new string[5]; RedTeam = new string[5]; }
+    private string GetX(double c, double r, int i) => (c + r * Math.Cos(AxisAngles[i])).ToString("F2");
+    private string GetY(double c, double r, int i) => (c + r * Math.Sin(AxisAngles[i])).ToString("F2");
+
+    private string GetHexPath(double radius)
+    {
+        var p = Enumerable.Range(0, 6).Select(i => $"{GetX(225, radius, i)},{GetY(225, radius, i)}");
+        return $"M {string.Join(" L ", p)} Z";
+    }
+
+    private string GetTeamPath(string[] team)
+    {
+        var s = GetAggregatedScores(team);
+        var p = Enumerable.Range(0, 6).Select(i =>
+        {
+            double r = (s[Categories[i]] / 10.0) * 150;
+            return $"{GetX(225, r, i)},{GetY(225, r, i)}";
+        });
+        return $"M {string.Join(" L ", p)} Z";
+    }
+
+    private Dictionary<string, double> GetAggregatedScores(string[] team)
+    {
+        var scores = Categories.ToDictionary(c => c, c => new List<double>());
+        foreach (var name in team.Where(n => !string.IsNullOrEmpty(n)))
+        {
+            var stats = GetDetailedStats(name);
+            scores["Early Game"].Add(stats.Early); scores["Poke"].Add(stats.Poke); scores["Scaling"].Add(stats.Scaling);
+            scores["Burst"].Add(stats.Burst); scores["Tanking"].Add(stats.Tanking); scores["Mobility"].Add(stats.Mobility);
+        }
+        return scores.ToDictionary(kv => kv.Key, kv =>
+        {
+            var sorted = kv.Value.OrderByDescending(v => v).ToList();
+            if (!sorted.Any()) return 0.0;
+            // Geometric diminishing returns for extremes
+            double total = sorted[0];
+            if (sorted.Count > 1) total += sorted[1] * 0.4;
+            if (sorted.Count > 2) total += sorted[2] * 0.2;
+            if (sorted.Count > 3) total += sorted[3] * 0.1;
+            return Math.Min(10, total);
+        });
+    }
+
+    public class Stats { public double Early, Poke, Scaling, Burst, Tanking, Mobility; }
+
+    private Stats GetDetailedStats(string name)
+    {
+        string n = name.ToLower().Replace("'", "").Replace(".", "").Replace(" ", "");
+        // Subclass Mapping Logic
+        if (n.Contains("xerath") || n.Contains("hwei") || n.Contains("ziggs") || n.Contains("velkoz"))
+            return new Stats { Early = 5, Poke = 10, Scaling = 8, Burst = 7, Tanking = 1, Mobility = 1 };
+        if (n.Contains("zed") || n.Contains("fizz") || n.Contains("talon") || n.Contains("katarina") || n.Contains("rengar") || n.Contains("khazix"))
+            return new Stats { Early = 7, Poke = 2, Scaling = 5, Burst = 10, Tanking = 2, Mobility = 9 };
+        if (n.Contains("ornn") || n.Contains("ksante") || n.Contains("mundo") || n.Contains("malphite") || n.Contains("alistar") || n.Contains("rell") || n.Contains("leona"))
+            return new Stats { Early = 5, Poke = 1, Scaling = 7, Burst = 3, Tanking = 10, Mobility = 4 };
+        if (n.Contains("vayne") || n.Contains("kayle") || n.Contains("kassadin") || n.Contains("smolder") || n.Contains("jinx") || n.Contains("kogmaw"))
+            return new Stats { Early = 1, Poke = 3, Scaling = 10, Burst = 6, Tanking = 3, Mobility = 5 };
+        if (n.Contains("draven") || n.Contains("renekton") || n.Contains("elise") || n.Contains("nidalee") || n.Contains("lee") || n.Contains("xin"))
+            return new Stats { Early = 10, Poke = 4, Scaling = 3, Burst = 8, Tanking = 5, Mobility = 8 };
+        if (n.Contains("singed") || n.Contains("quinn") || n.Contains("shaco") || n.Contains("sion") || n.Contains("twistedfate"))
+            return new Stats { Early = 6, Poke = 4, Scaling = 6, Burst = 5, Tanking = 6, Mobility = 10 };
+
+        return new Stats { Early = 5, Poke = 5, Scaling = 5, Burst = 5, Tanking = 5, Mobility = 5 };
+    }
+
+    private RenderFragment GenerateIntelligence(Dictionary<string, double> blue, Dictionary<string, double> red) => __builder =>
+    {
+        var bBest = blue.OrderByDescending(kv => kv.Value).First();
+        var rBest = red.OrderByDescending(kv => kv.Value).First();
+
+        @* Blue Win Con *@
+        <div class="flex items-start gap-4">
+            <div class="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0 shadow-[0_0_8px_#3b82f6]"></div>
+            <p class="text-xs md:text-sm text-slate-300"><span class="text-blue-400 font-black">BLUE WIN-CON:</span> Your @bBest.Key is specialized (@bBest.Value.ToString("F1")). Prioritize @GetAction(bBest.Key).</p>
+        </div>
+
+        @* Red Threat - Only shown if it's actually a threat (Red > Blue) *@
+        @if (rBest.Value > bBest.Value || red[rBest.Key] > blue[rBest.Key] + 1.5)
+        {
+            <div class="flex items-start gap-4">
+                <div class="w-2 h-2 rounded-full bg-red-500 mt-1.5 shrink-0 shadow-[0_0_8px_#ef4444]"></div>
+                <p class="text-xs md:text-sm text-slate-300"><span class="text-red-400 font-black">RED ALERT:</span> Enemy @rBest.Key is superior. Expect @GetThreat(rBest.Key).</p>
+            </div>
+        }
+
+        @* Direct Comparison (The "Extreme" logic) *@
+        double scalingGap = blue["Scaling"] - red["Scaling"];
+        if (scalingGap > 2.0)
+        {
+            <div class="mt-4 p-3 bg-blue-600/10 border-l-4 border-blue-600 rounded-r-xl">
+                <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Scaling Dominance Detected</p>
+                <p class="text-[11px] text-slate-400">You hold a massive late-game advantage. Play for neutral objectives and avoid high-risk early dives.</p>
+            </div>
+        }
+        else if (scalingGap < -2.0)
+        {
+            <div class="mt-4 p-3 bg-red-600/10 border-l-4 border-red-600 rounded-r-xl">
+                <p class="text-[10px] font-black text-red-400 uppercase tracking-widest">Tempo Deadline Active</p>
+                <p class="text-[11px] text-slate-400">The clock is your enemy. You must secure a 5k gold lead by 20:00 or face inevitable out-scaling.</p>
+            </div>
+        }
+    };
+
+    private string GetAction(string c) => c switch { "Early Game" => "early lane dominance", "Poke" => "long-range sieging", "Scaling" => "farming and safe kiting", "Burst" => "finding picks in fog", "Tanking" => "front-to-back teamfights", "Mobility" => "map rotations and splitting", _ => "teamplay" };
+    private string GetThreat(string c) => c switch { "Early Game" => "aggressive invades", "Poke" => "heavy health attrition", "Scaling" => "unstoppable late-game spikes", "Burst" => "one-shot potential on carries", "Tanking" => "unbreakable frontlines", "Mobility" => "flanks and global pressure", _ => "coordinated play" };
+
+    private List<string> ChampionNames = new() { "Aatrox", "Ahri", "Akali", "Akshan", "Alistar", "Ambessa", "Amumu", "Anivia", "Annie", "Aphelios", "Ashe", "Aurelion Sol", "Aurora", "Azir", "Bard", "Bel'Veth", "Blitzcrank", "Brand", "Braum", "Briar", "Caitlyn", "Camille", "Cassiopeia", "Cho'Gath", "Corki", "Darius", "Diana", "Dr. Mundo", "Draven", "Ekko", "Elise", "Evelynn", "Ezreal", "Fiddlesticks", "Fiora", "Fizz", "Galio", "Gangplank", "Garen", "Gnar", "Gragas", "Graves", "Hecarim", "Heimerdinger", "Hwei", "Illaoi", "Irelia", "Ivern", "Janna", "Jarvan IV", "Jax", "Jayce", "Jhin", "Jinx", "K'Sante", "Kai'Sa", "Kalista", "Karma", "Karthus", "Kassadin", "Katarina", "Kayle", "Kayn", "Kennen", "Kha'Zix", "Kindred", "Kled", "Kog'Maw", "LeBlanc", "Lee Sin", "Leona", "Lillia", "Lissandra", "Lucian", "Lulu", "Lux", "Malphite", "Malzahar", "Maokai", "Master Yi", "Mel", "Milio", "Miss Fortune", "Mordekaiser", "Morgana", "Naafiri", "Nami", "Nasus", "Nautilus", "Neeko", "Nidalee", "Nilah", "Nocturne", "Nunu & Willump", "Olaf", "Orianna", "Ornn", "Pantheon", "Poppy", "Pyke", "Qiyana", "Quinn", "Rakan", "Rammus", "Rek'Sai", "Rell", "Renata Glasc", "Renekton", "Rengar", "Riven", "Rumble", "Ryze", "Samira", "Sejuani", "Senna", "Seraphine", "Sett", "Shaco", "Shen", "Shyvana", "Singed", "Sion", "Sivir", "Skarner", "Smolder", "Sona", "Soraka", "Swain", "Sylas", "Syndra", "Tahm Kench", "Taliyah", "Talon", "Taric", "Teemo", "Thresh", "Tristana", "Trundle", "Tryndamere", "Twisted Fate", "Twitch", "Udyr", "Urgot", "Varus", "Vayne", "Veigar", "Vel'Koz", "Vex", "Vi", "Viego", "Viktor", "Vladimir", "Volibear", "Warwick", "Wukong", "Xayah", "Xerath", "Xin Zhao", "Yasuo", "Yone", "Yorick", "Yuumi", "Zac", "Zed", "Zeri", "Ziggs", "Zilean", "Zoe", "Zyra" };
+}
